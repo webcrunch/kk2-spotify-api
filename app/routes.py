@@ -3,15 +3,11 @@ from pydantic import BaseModel
 import pandas as pd
 import io
 
-
-from transformers import pipeline
+# Importera din helt nya orkestrerings-kedja
+from app.llm.base import spotify_pipeline, PipelineInput, StructuredResponse
 
 router = APIRouter()
 global_df = None
-
-print("Startar den lokala ai motorn")
-local_llm = pipeline("text-generation", model="HuggingFaceTB/SmolLM2-135M-Instruct")
-print("Ai Motorn fördig")
 
 
 class ChatRequest(BaseModel):
@@ -23,20 +19,14 @@ def get_data_or_400():
     if global_df is None:
         raise HTTPException(
             status_code=400,
-            detail="Ingen data har laddats upp. Posta fil till /data/upload först ",
+            detail="Ingen data har laddats upp. Kör /data/upload först!",
         )
     return global_df
 
 
-@router.get("/data/stats")
-def get_status(df: pd.DataFrame = Depends(get_data_or_400)):
-    return df.describe().to_dict()
-
-
 @router.post("/data/upload")
 async def upload_data(file: UploadFile = File(...)):
-
-    # vi verifiera att filen är en csv -> även om det inte kan vara 100 % eftersom man ändå kan manipulera detta.
+    global global_df
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Endast CSV-filer är tillåtna.")
     try:
@@ -47,37 +37,27 @@ async def upload_data(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Kunde inte läsa filen: {str(e)}")
 
 
-@router.post("/ai/ask")
+@router.get("/data/stats")
+def get_stats(df: pd.DataFrame = Depends(get_data_or_400)):
+    return df.describe().to_dict()
+
+
+@router.post("/ai/ask", response_model=StructuredResponse)
 def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_400)):
-    # stats_text = str(df.describe().to_dict())
-    stats_dict = df.describe().loc[["mean", "min", "max"]].to_dict()
-    stats_text = str(stats_dict)
-
-    system_prompt = (
-        "Du är en expert på dataanalys och musiktrender. "
-        "Du är kortfattad, professionell och svarar alltid på svenska. "
-        f"Använd följande statistik för att svara på användarens fråga:\n{stats_text}\n"
-        "Avsluta alltid med 'krama varandra i trafiken'."
-    )
-
-    user_question = request.query
-
-    # bygger om texten till en enda stor textsträng för att lokala transformers ska hantera den
-    full_prompt = f"{system_prompt}\n\nFråga: {user_question}\nSvar:"
-
     try:
-        # här kör vi modellen på den lokala maskinen
-        response = local_llm(full_prompt, max_new_token=150, truncate=True)
+        # Vi skickar med statistiken direkt in i pipelinen här!
+        # Det gör att det inte spelar någon roll vilken Uvicorn-process som svarar,
+        # för datan skickas med i själva anropet.
+        stats_dict = (
+            df[["danceability", "tempo", "energy", "loudness"]]
+            .describe()
+            .loc[["mean", "max"]]
+            .to_dict()
+        )
+        incoming_data = PipelineInput(query=request.query, stats_text=str(stats_dict))
 
-        # Vi städar upp texten så att vi bara hanterar svaret från Ain
-        raw_output = response[0]["generated-text"]
-        ai_svar = raw_output.split("Svar;")[-1].strip()
+        # Kör igång din helt egna Runnable-kedja!
+        return spotify_pipeline.invoke(incoming_data)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lokala AI:n kraschade: {str(e)}")
-
-    return {
-        "status": "framgång",
-        "fråga som ställdes": user_question,
-        "ai_svar": ai_svar,
-    }
+        raise HTTPException(status_code=500, detail=f"Pipeline kraschade: {str(e)}")
