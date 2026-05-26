@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment variables (Säkerhet!)
+.env
+
+# Data (om du lägger in stora dataset senare)
+*.csv
