@@ -45,3 +45,26 @@ async def upload_data(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Kunde inte läsa filen: {str(e)}")
+
+
+@router.post("/ai/ask")
+def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_400)):
+    stats_text = str(df.describe().to_dict())
+
+    system_prompt = (
+        "Du ska uppföra dig som en super expert inom både dataanalys samt även muisiktrender. "
+        "Du är kortfarttad, proffessionell samt svara alltid på svenska"
+        "Använd följande statiskti för att svara på användarens fråga:\n"
+        f"{stats_text}"
+        "Avsluta alltid med krama varandra i trafiken"
+    )
+
+    user_question = request.query
+    full_prompt_to_ai = f"{system_prompt}\n\nAnvändaresn fråga: {user_question}"
+
+    return {
+        "status": "framgång",
+        "fråga som ställdes": user_question,
+        "vad som skickdes till Ain": full_prompt_to_ai,
+        "dummy svar": "Här kommer riktigt svar att hanteras snart",
+    }
