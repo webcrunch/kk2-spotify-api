@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from pydantic import BaseModel
 import pandas as pd
 import io
@@ -10,15 +10,23 @@ router = APIRouter()
 global_df = None
 
 
+def get_data_or_400():
+    global global_df
+    if global_df is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Ingen data har laddats upp. Posta fil till  /data/upload först ",
+        )
+    return global_df
+
+
 class ChatRequest(BaseModel):
     query: str
 
 
 @router.get("/data/stats")
-def get_stats():
-    global global_df
-    if global_df is None:
-        raise HTTPException(status_code=404, detail="Ingen data har laddats upp ännu.")
+def get_stats(df: pd.DataFrame = Depends(get_data_or_400)):
+    return df.describe().to_dict()
 
 
 @router.post("/data/upload")
