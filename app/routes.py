@@ -3,8 +3,7 @@ from pydantic import BaseModel
 import pandas as pd
 import io
 
-# Importera din helt nya orkestrerings-kedja
-from app.llm.base import spotify_pipeline, PipelineInput, StructuredResponse
+from app.llm import spotify_pipeline, PipelineInput, StructuredResponse
 
 router = APIRouter()
 global_df = None
@@ -45,15 +44,15 @@ def get_stats(df: pd.DataFrame = Depends(get_data_or_400)):
 @router.post("/ai/ask", response_model=StructuredResponse)
 def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_400)):
     try:
-        # Vi skickar med statistiken direkt in i pipelinen här!
-        # Det gör att det inte spelar någon roll vilken Uvicorn-process som svarar,
-        # för datan skickas med i själva anropet.
+        # Vi plockar ut de mest relevanta kolumnerna och värdena
+        # för att hålla prompten kort och fokuserad för vår lokala modell
         stats_dict = (
             df[["danceability", "tempo", "energy", "loudness"]]
             .describe()
             .loc[["mean", "max"]]
             .to_dict()
         )
+
         incoming_data = PipelineInput(query=request.query, stats_text=str(stats_dict))
 
         # Kör igång din helt egna Runnable-kedja!

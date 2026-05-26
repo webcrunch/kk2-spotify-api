@@ -1,107 +1,32 @@
 from transformers import pipeline
-from pydantic import BaseModel, ConfigDict, SerializeAsAny
-from typing import Any, Callable, Generic, TypeVar
+from app.llm.base import Runnable
+from app.llm.models import (
+    PipelineInput,
+    PromptPayload,
+    RawLLMOutput,
+    StructuredResponse,
+)
 
-I = TypeVar("I")
-O = TypeVar("O")
-M = TypeVar("M")
-
-
-class Runnable(BaseModel, Generic[I, O]):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    name: str | None = None
-
-    def invoke(self, data: I) -> O:
-        raise NotImplementedError("Subclasses is not implemented")
-
-    def __or__(self, other: Any) -> "RunnableSequence":
-        # Fallback: Om Pydantic har strulat till instansen
-        current_self = self if self is not None else self.__class__()
-
-        # Kolla om 'other' är en instans av Runnable (eller en subklass)
-        if isinstance(other, Runnable) or (
-            hasclass := hasattr(other, "__class__")
-            and issubclass(other.__class__, Runnable)
-        ):
-            return RunnableSequence.model_construct(first=current_self, second=other)
-
-        if callable(other):
-            return RunnableSequence.model_construct(
-                first=current_self,
-                second=RunnableLambda.model_construct(
-                    func=other, name=getattr(other, "__name__", "lambda")
-                ),
-                name=getattr(other, "__name__", "lambda"),
-            )
-        return NotImplemented
-
-    def __ror__(self, other: Any) -> Any:
-        if callable(other):
-            return RunnableSequence.model_construct(
-                first=RunnableLambda.model_construct(func=other),
-                second=self,
-                name=getattr(other, "__name__", "lambda"),
-            )
-        return NotImplemented
-
-
-class RunnableLambda(Runnable[I, O]):
-    func: Callable[[I], O]
-
-    def invoke(self, data: I) -> O:
-        return self.func(data)
-
-
-class RunnableSequence(Runnable[I, O], Generic[I, M, O]):
-    first: SerializeAsAny[Runnable[I, M]]
-    second: SerializeAsAny[Runnable[M, O]]
-
-    def invoke(self, data: I) -> O:
-        return self.second.invoke(self.first.invoke(data))
-
-
-# Hårt typade pydantic modeller
-
-
-class PipelineInput(BaseModel):
-    query: str
-    stats_text: str
-
-
-class PromptPayload(BaseModel):
-    original_query: str
-    full_prompt: str
-
-
-class RawLLMOutput(BaseModel):
-    original_query: str
-    raw_text: str
-
-
-class StructuredResponse(BaseModel):
-    fraga: str
-    ai_svar: str
-
-
-# PIPELINES
+# Global variabel för den lokala maskininlärningsmodellen (Lazy Loading)
+GLOBAL_LOCAL_PIPELINE = None
 
 
 class PromptBuilder(Runnable[PipelineInput, PromptPayload]):
     name: str = "prompt_builder"
 
     def invoke(self, data: PipelineInput) -> PromptPayload:
+        # Vi gör om datan till ren text som en smart modell älskar
         system_prompt = (
-            "Du är en expert på dataanalys och musiktrender. "
-            "Svara kortfattat, professionell och alltid på svenska. "
-            f"Använd denna statistik för att svara:\n{data.stats_text}\n"
-            "Avsluta alltid ditt svar med 'krama varandra i trafiken'."
+            "Du är en professionell dataanalytiker som hjälper användaren med Spotify-statistik.\n"
+            "Använd ENDAST denna data för att svara:\n"
+            f"{data.stats_text}\n\n"
+            "Svara kort, koncist och alltid på svenska. "
+            "Avsluta med 'krama varandra i trafiken'."
         )
 
-        full_prompt = f"{system_prompt}\n\nFråga: {data.query}\nSvar:"
+        # Det korrekta chattformatet för SmolLM2
+        full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{data.query}<|im_end|>\n<|im_start|>assistant\n"
         return PromptPayload(original_query=data.query, full_prompt=full_prompt)
-
-
-GLOBAL_LOCAL_PIPELINE = None
 
 
 class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
@@ -111,18 +36,16 @@ class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
         global GLOBAL_LOCAL_PIPELINE
 
         if GLOBAL_LOCAL_PIPELINE is None:
-            print("Laddar in den lokala AI-modellen...")
+            print("Laddar in den lokala AI-modellen i minnet...")
             GLOBAL_LOCAL_PIPELINE = pipeline(
-                "text-generation", model="HuggingFaceTB/SmolLM2-135M-Instruct"
+                "text-generation", model="HuggingFaceTB/SmolLM2-1.7B-Instruct"
             )
-            print("Modellen är redo!")
+            print("Modellen är redo och inläst!")
 
-        # 1. FIXEN: Vi använder en ren text-sträng men sätter säkra gränser för sökningen
-        # Vi lägger till do_sample=True och en lägre temperatur så den inte svävar iväg
         response = GLOBAL_LOCAL_PIPELINE(
             payload.full_prompt,
             max_new_tokens=100,
-            temperature=0.1,  # Låg temperatur = mer strikt och håller sig till fakta
+            temperature=0.1,
             do_sample=True,
             pad_token_id=GLOBAL_LOCAL_PIPELINE.tokenizer.eos_token_id,
         )
@@ -135,11 +58,9 @@ class ResponseParser(Runnable[RawLLMOutput, StructuredResponse]):
     name: str = "response_parser"
 
     def invoke(self, data: RawLLMOutput) -> StructuredResponse:
-
-        # Vi plockar bara ut det som ain svarade
         ai_clean = data.raw_text.split("Svar:")[-1].strip()
-
         return StructuredResponse(fraga=data.original_query, ai_svar=ai_clean)
 
 
+# Vi komponerar ihop kedjan med |-operatorn
 spotify_pipeline = PromptBuilder() | LLMRunner() | ResponseParser()
