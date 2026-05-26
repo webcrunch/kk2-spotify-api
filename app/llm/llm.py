@@ -36,10 +36,13 @@ class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
         global GLOBAL_LOCAL_PIPELINE
 
         if GLOBAL_LOCAL_PIPELINE is None:
-            print("Laddar in den lokala AI-modellen i minnet...")
-            GLOBAL_LOCAL_PIPELINE = pipeline(
-                "text-generation", model="HuggingFaceTB/SmolLM2-1.7B-Instruct"
+
+            model_to_load = os.getenv(
+                "MODEL_NAME", "HuggingFaceTB/SmolLM2-135M-Instruct"
             )
+
+            print(f"Laddar in den lokala AI-modellen: {model_to_load}...")
+            GLOBAL_LOCAL_PIPELINE = pipeline("text-generation", model=model_to_load)
             print("Modellen är redo och inläst!")
 
         response = GLOBAL_LOCAL_PIPELINE(
