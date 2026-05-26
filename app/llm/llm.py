@@ -6,9 +6,17 @@ from app.llm.models import (
     RawLLMOutput,
     StructuredResponse,
 )
+import os
+import logging
 
 # Global variabel för den lokala maskininlärningsmodellen (Lazy Loading)
 GLOBAL_LOCAL_PIPELINE = None
+
+# Konfigurera loggningen
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
 class PromptBuilder(Runnable[PipelineInput, PromptPayload]):
@@ -24,9 +32,13 @@ class PromptBuilder(Runnable[PipelineInput, PromptPayload]):
             "Avsluta med 'krama varandra i trafiken'."
         )
 
-        # Det korrekta chattformatet för SmolLM2
-        full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{data.query}<|im_end|>\n<|im_start|>assistant\n"
-        return PromptPayload(original_query=data.query, full_prompt=full_prompt)
+        full_prompt = (
+            f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+            f"<|im_start|>user\n{data.question}<|im_end|>\n"
+            f"<|im_start|>assistant\n"  # Vi lämnar den tom, modellen får formulera meningen själv!
+        )
+
+        return PromptPayload(original_question=data.question, full_prompt=full_prompt)
 
 
 class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
@@ -36,14 +48,15 @@ class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
         global GLOBAL_LOCAL_PIPELINE
 
         if GLOBAL_LOCAL_PIPELINE is None:
-
             model_to_load = os.getenv(
                 "MODEL_NAME", "HuggingFaceTB/SmolLM2-135M-Instruct"
             )
 
-            print(f"Laddar in den lokala AI-modellen: {model_to_load}...")
-            GLOBAL_LOCAL_PIPELINE = pipeline("text-generation", model=model_to_load)
-            print("Modellen är redo och inläst!")
+            logger.info(f"Laddar in den lokala AI-modellen: {model_to_load}...")
+            GLOBAL_LOCAL_PIPELINE = pipeline(
+                "text-generation", model=model_to_load, token=os.getenv("HF_TOKEN")
+            )
+            logger.info("Modellen är redo och inläst i minnet!")
 
         response = GLOBAL_LOCAL_PIPELINE(
             payload.full_prompt,
@@ -54,15 +67,42 @@ class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
         )
 
         raw_text = response[0]["generated_text"]
-        return RawLLMOutput(original_query=payload.original_query, raw_text=raw_text)
+
+        # KORRIGERAD: original_query -> original_question
+        return RawLLMOutput(
+            original_question=payload.original_question, raw_text=raw_text
+        )
 
 
 class ResponseParser(Runnable[RawLLMOutput, StructuredResponse]):
     name: str = "response_parser"
 
     def invoke(self, data: RawLLMOutput) -> StructuredResponse:
-        ai_clean = data.raw_text.split("Svar:")[-1].strip()
-        return StructuredResponse(fraga=data.original_query, ai_svar=ai_clean)
+        raw_text = data.raw_text
+        target_token = "<|im_start|>assistant\n"
+
+        # 1. Hitta var AI:ns faktiska svar börjar
+        if target_token in raw_text:
+            # Klipp bort allt system- och user-lullull före assistant
+            clean_answer = raw_text.split(target_token)[-1]
+        else:
+            # Fallback om modellen formaterade lite annorlunda
+            clean_answer = raw_text
+
+        # 2. Städa bort eventuella ChatML-taggar (så vi slipper se <|im_end|>)
+        clean_answer = clean_answer.replace("<|im_end|>", "").strip()
+
+        # 3. Vi limmar på din signatur med en snygg radbrytning!
+        final_answer = f"{clean_answer}\n\nkrama varandra i trafiken!"
+
+        # Vi hämtar modellnamnet direkt från miljövariabeln som fallback!
+        current_model = os.getenv("MODEL_NAME", "HuggingFaceTB/SmolLM2-1.7B-Instruct")
+
+        return StructuredResponse(
+            question=data.original_question,
+            answer=clean_answer,
+            model=current_model,
+        )
 
 
 # Vi komponerar ihop kedjan med |-operatorn
