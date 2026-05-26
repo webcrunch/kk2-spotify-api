@@ -13,11 +13,11 @@ class ChatRequest(BaseModel):
     query: str
 
 
-def get_data_or_400():
+def get_data_or_404():
     global global_df
     if global_df is None:
         raise HTTPException(
-            status_code=400,
+            status_code=404,
             detail="Ingen data har laddats upp. Kör /data/upload först!",
         )
     return global_df
@@ -31,18 +31,22 @@ async def upload_data(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         global_df = pd.read_csv(io.BytesIO(contents), encoding="utf-8")
-        return {"message": "Filen har laddats upp!", "rows": len(global_df)}
+        return {
+            "rows": len(global_df),
+            "columns": global_df.columns.tolist(),
+            "dtypes": global_df.dtypes.astype(str).to_dict(),
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Kunde inte läsa filen: {str(e)}")
 
 
 @router.get("/data/stats")
-def get_stats(df: pd.DataFrame = Depends(get_data_or_400)):
+def get_stats(df: pd.DataFrame = Depends(get_data_or_404)):
     return df.describe().to_dict()
 
 
 @router.post("/ai/ask", response_model=StructuredResponse)
-def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_400)):
+def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_404)):
     try:
         # Vi plockar ut de mest relevanta kolumnerna och värdena
         # för att hålla prompten kort och fokuserad för vår lokala modell
