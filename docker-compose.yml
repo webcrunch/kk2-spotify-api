@@ -1,0 +1,46 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: spotify_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - spotify-network
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: spotify_ollama_init
+    networks:
+      - spotify-network
+    depends_on:
+      - ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - |
+        echo "Väntar på att Ollama-servern ska starta..."
+        until ollama list > /dev/null 2>&1; do sleep 2; done
+
+        echo "Laddar ner Llama 3.2..."
+        ollama pull llama3.2
+
+        echo "Modellen är redo att användas!"
+    restart: "no"
+
+networks:
+  spotify-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
