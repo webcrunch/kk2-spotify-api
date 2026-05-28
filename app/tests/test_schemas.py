@@ -43,7 +43,7 @@ def test_prompt_payload_accepts_valid_data():
     assert data.full_prompt == "Den stora promptens äventyr"
 
 
-def test_prompt_payload_accepts_missing_field():
+def test_prompt_payload_rejects_missing_field():
     with pytest.raises(ValidationError):
         PromptPayload(original_question="En lista istället för en sträng")
 
@@ -65,3 +65,8 @@ def test_raw_llm_output_accepts_valid_data():
     )
     assert data.original_question == "Super question"
     assert data.raw_text == "Super duper raw text"
+
+
+def test_raw_llm_output_rejects_missing_field():
+    with pytest.raises(ValidationError):
+        RawLLMOutput(original_question="Super question")
