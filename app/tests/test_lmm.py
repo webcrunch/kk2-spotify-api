@@ -38,3 +38,9 @@ def test_response_parser_cleans_and_adds_signature():
 
     # kolla så att signaturen som ska adderas kommer med
     assert "krama varnadra i trafiken" in _r_a
+
+
+# Test 2 : Testar mina endpoints
+def test_ask_ai_without_data_return_400():
+    response = client.post("/ai/ask", json={"question": "Test?"})
+    assert response.status_code == 400
