@@ -113,3 +113,11 @@ def test_structured_response_rejects_missing_fields():
     # Vi försöker skapa ett svar, men "glömmer" att skicka med själva svaret (answer)
     with pytest.raises(ValidationError):
         StructuredResponse(question="Vad är meningen med livet?")
+
+
+def test_structured_response_rejects_wrong_types():
+    # Vi försöker skapa ett svar, men "glömmer" att skicka med själva svaret (answer)
+    with pytest.raises(ValidationError):
+        StructuredResponse(
+            question=["Vad är meningen med livet?"], answer="Det stora svarets äventyr"
+        )
