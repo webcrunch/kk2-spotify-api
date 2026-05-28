@@ -8,7 +8,10 @@ from app.llm.models import (
 )
 import os
 import logging
+import requests
+from dotenv import load_dotenv
 
+load_dotenv()
 # Global variabel för den lokala maskininlärningsmodellen (Lazy Loading)
 GLOBAL_LOCAL_PIPELINE = None
 
@@ -47,28 +50,57 @@ class LLMRunner(Runnable[PromptPayload, RawLLMOutput]):
     def invoke(self, payload: PromptPayload) -> RawLLMOutput:
         global GLOBAL_LOCAL_PIPELINE
 
-        if GLOBAL_LOCAL_PIPELINE is None:
-            model_to_load = os.getenv(
-                "MODEL_NAME", "HuggingFaceTB/SmolLM2-135M-Instruct"
+        # hämtar environment variablen
+        provider = os.getenv("AI_PROVIDER", "huggingface").lower()
+
+        if provider == "ollama":
+            # logik för att hantera ollama anrop
+            model_name = os.getenv("MODEL_NAME", "llama3.2")
+            ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+            logger.info(
+                f"Skickar förfrågan till Ollama ({model_name}) på {ollama_url}..."
             )
 
-            logger.info(f"Laddar in den lokala AI-modellen: {model_to_load}...")
-            GLOBAL_LOCAL_PIPELINE = pipeline(
-                "text-generation", model=model_to_load, token=os.getenv("HF_TOKEN")
+            api_payload = {
+                "model": model_name,
+                "prompt": payload.full_prompt,
+                "stream": False,
+                "options": {"temperature": 0.1},
+            }
+
+            try:
+                response = requests.post(f"{ollama_url}/api/generate", json=api_payload)
+                response.raise_for_status()
+
+                raw_text = response.json().get("response", "")
+                logger.info("Fick svar från Ollama framgångsrikt")
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Ett fel uppstod vid kommunikationen med Ollama: {e}")
+                raw_text = "Något gick fel :/ Ollama är inte tillgänglig för tillfället"
+
+        else:
+            model_name = os.getenv("MODEL_NAME", "HuggingFaceTB/SmolLM2-135M-Instruct")
+
+            if GLOBAL_LOCAL_PIPELINE is None:
+                logger.info(f"Laddar in den lokala AI-modellen: {model_name}...")
+                GLOBAL_LOCAL_PIPELINE = pipeline(
+                    "text-generation", model=model_name, token=os.getenv("HF_TOKEN")
+                )
+                logger.info("Modellen är reda och inläst i minnet!")
+
+            logger.info("Kör generering likalt med HuggingFace")
+            response = GLOBAL_LOCAL_PIPELINE(
+                payload.full_prompt,
+                max_new_tokens=100,
+                temperature=0.1,
+                do_sample=True,
+                pad_token_id=GLOBAL_LOCAL_PIPELINE.tokenizer.eos_token_id,
             )
-            logger.info("Modellen är redo och inläst i minnet!")
 
-        response = GLOBAL_LOCAL_PIPELINE(
-            payload.full_prompt,
-            max_new_tokens=100,
-            temperature=0.1,
-            do_sample=True,
-            pad_token_id=GLOBAL_LOCAL_PIPELINE.tokenizer.eos_token_id,
-        )
+            raw_text = response[0]["generated_text"]
 
-        raw_text = response[0]["generated_text"]
-
-        # KORRIGERAD: original_query -> original_question
         return RawLLMOutput(
             original_question=payload.original_question, raw_text=raw_text
         )
@@ -83,20 +115,34 @@ class ResponseParser(Runnable[RawLLMOutput, StructuredResponse]):
 
         # 1. Hitta var AI:ns faktiska svar börjar
         if target_token in raw_text:
-            # Klipp bort allt system- och user-lullull före assistant
             clean_answer = raw_text.split(target_token)[-1]
         else:
-            # Fallback om modellen formaterade lite annorlunda
             clean_answer = raw_text
 
-        # 2. Städa bort eventuella ChatML-taggar (så vi slipper se <|im_end|>)
+        # 2. Städa bort eventuella ChatML-taggar
         clean_answer = clean_answer.replace("<|im_end|>", "").strip()
 
-        # 3. Vi limmar på din signatur med en snygg radbrytning!
-        final_answer = f"{clean_answer}\n\nkrama varandra i trafiken!"
+        # Hämta den modellen vi kör på och gör den till små bokstäver för enklare matchning
+        current_model = os.getenv("MODEL_NAME", "okänd-modell").lower()
 
-        # Vi hämtar modellnamnet direkt från miljövariabeln som fallback!
-        current_model = os.getenv("MODEL_NAME", "HuggingFaceTB/SmolLM2-1.7B-Instruct")
+        # Vår dynamiska "växel"
+        catchphrases = {
+            "llama": "Dags att bli farliga",
+            "mistral": "håll koden ren och containrarna små",
+            "smollm": "krama varandra i trafiken!",
+        }
+
+        # Vår default-sträng om ingen matchning hittas
+        chosen_phrase = "glöm inte att pusha till main!"
+
+        # DYNAMISK MATCHNING: Vi loopar och kollar om t.ex. "llama" finns inuti "llama3.2"
+        for key, phrase in catchphrases.items():
+            if key in current_model:
+                chosen_phrase = phrase
+                break
+
+        # 3. Limma ihop allt
+        final_answer = f"{clean_answer}\n\n{chosen_phrase}"
 
         return StructuredResponse(
             question=data.original_question,
