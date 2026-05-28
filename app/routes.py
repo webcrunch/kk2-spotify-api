@@ -83,27 +83,3 @@ def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_404)):
     except Exception as e:
         logger.error(f"Pipeline kraschade: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Pipeline kraschade: {str(e)}")
-
-
-# @router.post("/ai/ask", response_model=StructuredResponse)
-# def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_404)):
-#     try:
-#         # Vi plockar ut de mest relevanta kolumnerna och värdena
-#         # för att hålla prompten kort och fokuserad för vår lokala modell
-#         stats_dict = (
-#             df[["danceability", "tempo", "energy", "loudness"]]
-#             .describe()
-#             .loc[["mean", "max"]]
-#             .to_dict()
-#         )
-
-#         incoming_data = PipelineInput(
-#             query=request.question, stats_text=str(stats_dict)
-#         )
-
-#         # Kör igång din helt egna Runnable-kedja!
-#         return spotify_pipeline.invoke(incoming_data)
-
-#     except Exception as e:
-#         logger.error(f"Pipeline kraschade: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Pipeline kraschade: {str(e)}")
