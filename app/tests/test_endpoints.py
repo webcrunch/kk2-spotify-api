@@ -47,3 +47,12 @@ def test_upload_invalid_file_type_returns_400():
 
     # ASSERT: API:et ska kasta en 400 Bad Request
     assert response.status_code == 400
+
+
+# 4. kolla health endpointen
+def test_health_endpoint_returns_200():
+    response = client.get(
+        "/health",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
