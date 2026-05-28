@@ -94,3 +94,16 @@ def test_structured_response_uses_default_model(monkeypatch):
 
     # verifjera så att fallbacken av modell kickar in
     assert response.model == "HuggingFaceTB/SmolLM2-135M-Instruct"
+
+
+def test_structured_response_uses_env_variable(monkeypatch):
+    # addera en fejkad miljövariabel
+    monkeypatch.setenv("MODEL_NAME", "huggingintheface/astronomicalfa")
+
+    # skapa modellen
+    response = StructuredResponse(
+        question="Den stora frågans äventyr", answer="Det stora svarets äventyr"
+    )
+
+    # verfiera så att den läser in fejkade variablen
+    assert response.model == "huggingintheface/astronomicalfa"
