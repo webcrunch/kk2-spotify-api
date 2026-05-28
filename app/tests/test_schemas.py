@@ -23,3 +23,14 @@ def test_pipeline_input_reject_missing_field():
     with pytest.raises(ValidationError):
         PipelineInput(question="Din stora hamster")
     # Denna ska smälla för vi har ingen stats_text
+
+
+# _________ PROMPT PAYLOAD TESTER______________#
+
+
+def test_prompt_payload_accepts_valid_data():
+    data = PromptPayload(
+        original_question="Fråga", full_prompt="Den stora promptens äventyr"
+    )
+    assert data.original_question == "Fråga"
+    assert data.full_prompt == "Den stora promptens äventyr"
