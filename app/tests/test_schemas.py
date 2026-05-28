@@ -54,3 +54,14 @@ def test_prompt_payload_rejects_wrong_type():
             original_question=["En lista istället för en sträng;( "],
             full_prompt="Den stora promptens äventyr",
         )
+
+
+# _______ RAWLLMOUTPUT TEESTER _____#
+
+
+def test_raw_llm_output_accepts_valid_data():
+    data = RawLLMOutput(
+        original_question="Super question", raw_text="Super duper raw text"
+    )
+    assert data.original_question == "Super question"
+    assert data.raw_text == "Super duper raw text"
