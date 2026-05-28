@@ -100,7 +100,7 @@ class ResponseParser(Runnable[RawLLMOutput, StructuredResponse]):
 
         return StructuredResponse(
             question=data.original_question,
-            answer=clean_answer,
+            answer=final_answer,
             model=current_model,
         )
 
