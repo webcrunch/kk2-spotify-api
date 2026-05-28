@@ -24,6 +24,14 @@ def test_pipeline_input_reject_missing_field():
         PipelineInput(question="Din stora hamster")
 
 
+def test_pipeline_input_rejects_wrong_type():
+    with pytest.raises(ValidationError):
+        PipelineInput(
+            question=["En lista istället för en sträng;( "],
+            stats_text="Den stora promptens äventyr",
+        )
+
+
 # _________ PROMPT PAYLOAD TESTER______________#
 
 
