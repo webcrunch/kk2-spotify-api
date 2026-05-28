@@ -78,3 +78,19 @@ def test_raw_llm_output_rejects_wrong_type():
             original_question=["Super question istället för en sträng;( "],
             full_prompt="Den stora promptens äventyr",
         )
+
+
+# ____________  STRUCTURED RESPONSE TESTER INC .env fallback _______#
+
+
+def test_structured_response_uses_default_model(monkeypatch):
+    # Vi måste fajka att vi har satt en miljövariabel
+    monkeypatch.delenv("MODEL_NAME", raising=False)
+
+    # Här skapar vi modellen
+    response = StructuredResponse(
+        question="Den stora frågans äventyr", answer="Det stora svarets äventyr"
+    )
+
+    # verifjera så att fallbacken av modell kickar in
+    assert response.model == "HuggingFaceTB/SmolLM2-135M-Instruct"
