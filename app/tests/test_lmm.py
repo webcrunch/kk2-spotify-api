@@ -8,7 +8,11 @@ client = TestClient(app)
 
 
 # Test 1 : testar städning av kod
-def test_response_parser_cleans_and_adds_signature():
+def test_response_parser_cleans_and_adds_signature(monkeypatch):
+    # 1. Tvinga Python att tro att SmolLM körs för just för detta testet!
+    # Detta ignorerar vad som faktiskt står i din .env-fil
+    monkeypatch.setenv("MODEL_NAME", "smollm")
+
     # ARRANGE:
     # fake private eftersom vi bara behöver den i detta testet
     _o_q = "Vilken låt har högst tempo?"
@@ -38,6 +42,7 @@ def test_response_parser_cleans_and_adds_signature():
 
     # kolla så att signaturen som ska adderas kommer med
     assert "krama varandra i trafiken!" in _r_a
+    assert result.model == "smollm"
 
 
 # Test 2 : Testa att skicka tillbaka mockat svar

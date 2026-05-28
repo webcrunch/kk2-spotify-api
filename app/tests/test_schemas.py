@@ -14,14 +14,17 @@ from app.llm.models import (
 
 
 def test_pipeline_input_accepts_valid_data():
-    data = PipelineInput(question="Din stora hamster", stats_text="Data")
+    data = PipelineInput(
+        question="Din stora hamster", stats_text="Data", context="Musiker"
+    )
     assert data.question == "Din stora hamster"
     assert data.stats_text == "Data"
+    assert data.context == "Musiker"
 
 
 def test_pipeline_input_reject_missing_field():
     with pytest.raises(ValidationError):
-        PipelineInput(question="Din stora hamster")
+        PipelineInput(question="Din stora hamster", context="Musiker")
 
 
 def test_pipeline_input_rejects_wrong_type():
@@ -29,6 +32,7 @@ def test_pipeline_input_rejects_wrong_type():
         PipelineInput(
             question=["En lista istället för en sträng;( "],
             stats_text="Den stora promptens äventyr",
+            context="Musiker",
         )
 
 
