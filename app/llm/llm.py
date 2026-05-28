@@ -26,19 +26,22 @@ class PromptBuilder(Runnable[PipelineInput, PromptPayload]):
     name: str = "prompt_builder"
 
     def invoke(self, data: PipelineInput) -> PromptPayload:
-        # Vi gör om datan till ren text som en smart modell älskar
+
+        # vill kunna använda en dynamisk prompt för att kunna hantera olika dataset och inte bara vara låst till ett
         system_prompt = (
-            "Du är en professionell dataanalytiker som hjälper användaren med Spotify-statistik.\n"
-            "Använd ENDAST denna data för att svara:\n"
-            f"{data.stats_text}\n\n"
-            "Svara kort, koncist och alltid på svenska. "
-            "Avsluta med 'krama varandra i trafiken'."
+            f"Du är en skicklig och analytisk assistent och expert på att analysera {data.context} "
+            "Användaren har laddat upp ett dataset. Ditt uppdrag är att svara på användarens "
+            "fråga genom att ENDAST använda informationen i den bifogade datan.\n\n"
+            "<dataset>\n"
+            f"{data.stats_text}\n"
+            "</dataset>\n\n"
+            "Svara kort, koncist och alltid på svenska"
         )
 
         full_prompt = (
             f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
             f"<|im_start|>user\n{data.question}<|im_end|>\n"
-            f"<|im_start|>assistant\n"  # Vi lämnar den tom, modellen får formulera meningen själv!
+            f"<|im_start|>assistant\n"
         )
 
         return PromptPayload(original_question=data.question, full_prompt=full_prompt)
