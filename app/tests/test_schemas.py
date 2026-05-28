@@ -34,3 +34,11 @@ def test_prompt_payload_accepts_valid_data():
     )
     assert data.original_question == "Fråga"
     assert data.full_prompt == "Den stora promptens äventyr"
+
+
+def test_prompt_payload_rejects_wrong_type():
+    with pytest.raises(ValidationError):
+        PromptPayload(
+            original_question=["En lista istället för en sträng;( "],
+            full_prompt="Den stora promptens äventyr",
+        )
