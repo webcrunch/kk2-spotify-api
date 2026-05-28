@@ -70,3 +70,11 @@ def test_raw_llm_output_accepts_valid_data():
 def test_raw_llm_output_rejects_missing_field():
     with pytest.raises(ValidationError):
         RawLLMOutput(original_question="Super question")
+
+
+def test_raw_llm_output_rejects_wrong_type():
+    with pytest.raises(ValidationError):
+        RawLLMOutput(
+            original_question=["Super question istället för en sträng;( "],
+            full_prompt="Den stora promptens äventyr",
+        )
