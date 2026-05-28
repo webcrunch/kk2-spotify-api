@@ -9,3 +9,4 @@ venv/
 
 # Data (om du lägger in stora dataset senare)
 *.csv
+*.json
