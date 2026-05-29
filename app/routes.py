@@ -7,6 +7,8 @@ import os
 from app.llm import spotify_pipeline, PipelineInput, StructuredResponse
 import hashlib
 from cachetools import TTLCache
+from fastapi import Request
+from app.main import limiter
 
 # ----- INSTANSIERA JOHNNY CACHE ------
 
@@ -50,7 +52,8 @@ def get_data_or_404():
 
 
 @router.post("/data/upload")
-async def upload_data(file: UploadFile = File(...)):
+@limiter.limit("5/minute")
+async def upload_data(request: Request, file: UploadFile = File(...)):
     global global_df
 
     # 1. Kontrollera att filen är antingen CSV eller Excel
@@ -86,7 +89,12 @@ def get_stats(df: pd.DataFrame = Depends(get_data_or_404)):
 
 
 @router.post("/ai/ask", response_model=StructuredResponse)
-def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_404)):
+@limiter.limit("5/minute")
+def ask_ai(
+    request: Request,
+    chat_payload: ChatRequest,
+    df: pd.DataFrame = Depends(get_data_or_404),
+):
     try:
         # 1. Definiera vilka kolumner vi helst vill analysera
         target_columns = ["danceability", "tempo", "energy", "loudness"]
@@ -105,7 +113,7 @@ def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_404)):
         stats_dict = df[available_columns].describe().loc[["mean", "max"]].to_dict()
         stats_text = str(stats_dict)
         # 4. Kontrollera cachen
-        cache_key = generate_cache_key(request.question, stats_dict)
+        cache_key = generate_cache_key(chat_payload.question, stats_dict)
 
         if cache_key in johnny_cache:
             logger.info("⚡ Cache hit!. Johnny leverar svaret från minnet. ⚡")
@@ -114,9 +122,9 @@ def ask_ai(request: ChatRequest, df: pd.DataFrame = Depends(get_data_or_404)):
         logger.info("🐢 Cache miss. Skickar frågan till AI-modellen...")
         # 5. Skapa input-modellen (Synkad med question-fältet)
         incoming_data = PipelineInput(
-            question=request.question,
+            question=chat_payload.question,
             stats_text=str(stats_dict),
-            context=request.context,
+            context=chat_payload.context,
         )
 
         # 6. Kör igång din helt egna Runnable-kedja!
