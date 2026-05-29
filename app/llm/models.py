@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class PipelineInput(BaseModel):
     question: str
     stats_text: str
-    context: str = "allmän data"
+    context: str
 
 
 class PromptPayload(BaseModel):
