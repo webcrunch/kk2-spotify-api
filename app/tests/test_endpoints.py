@@ -5,7 +5,7 @@ client = TestClient(app)
 
 
 # Test 1 : Sad Path för att testa så att vi får 404 tillbaka
-def test_ask_ai_without_data_return_400():
+def test_ask_ai_without_data_return_404():
     response = client.post("/ai/ask", json={"question": "Test?"})
     assert response.status_code == 404
 
