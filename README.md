@@ -25,7 +25,6 @@ När ett POST-anrop görs till `/ai/ask` slussas datan genom följande typade Py
 
 ---
 
-## 🚀 Installation & Körning
 
 ## 🚀 Installation & Körning
 
