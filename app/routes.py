@@ -56,22 +56,18 @@ def get_data_or_404():
 async def upload_data(request: Request, file: UploadFile = File(...)):
     global global_df
 
-    # 1. Kontrollera att filen är antingen CSV eller Excel
-    if not file.filename.endswith((".csv", ".xls", ".xlsx")):
+    # 1. Kontrollera att filen endast är en CSV-fil
+    if not file.filename.endswith(".csv"):
         raise HTTPException(
             status_code=400,
-            detail="Endast CSV- och Excel-filer (.xlsx, .xls) är tillåtna.",
+            detail="Endast CSV-filer är tillåtna.",
         )
 
     try:
         contents = await file.read()
 
-        # 2. Välj rätt Pandas-läsare beroende på filändelse!
-        if file.filename.endswith(".csv"):
-            global_df = pd.read_csv(io.BytesIO(contents), encoding="utf-8")
-        else:
-            # Om det inte är en CSV så fångas Excel-filerna här
-            global_df = pd.read_excel(io.BytesIO(contents))
+        # Läs in filen direkt med Pandas
+        global_df = pd.read_csv(io.BytesIO(contents), encoding="utf-8")
 
         return {
             "rows": len(global_df),
@@ -79,7 +75,7 @@ async def upload_data(request: Request, file: UploadFile = File(...)):
             "dtypes": global_df.dtypes.astype(str).to_dict(),
         }
     except Exception as e:
-        logger.error(f"Kunde inte läsa filen: {str(e)}")  # Lade till f-prefixet här!
+        logger.error(f"Kunde inte läsa filen: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Kunde inte läsa filen: {str(e)}")
 
 
@@ -96,10 +92,10 @@ def ask_ai(
     df: pd.DataFrame = Depends(get_data_or_404),
 ):
     try:
-        # 1. Definiera vilka kolumner vi helst vill analysera
+        #  Definiera vilka kolumner vi helst vill analysera
         target_columns = ["danceability", "tempo", "energy", "loudness"]
 
-        # 2. Dynamisk kontroll: Ta bara de kolumner som faktiskt existerar i filen
+        #  Dynamisk kontroll: Ta bara de kolumner som faktiskt existerar i filen
         available_columns = [col for col in target_columns if col in df.columns]
 
         # Fallback: Om ingen av målkolumnerna hittades, ta filens 4 första kolumner
