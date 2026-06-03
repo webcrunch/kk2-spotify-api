@@ -102,7 +102,7 @@ Returnerar beskrivande statistik (från df.describe()). Om ingen fil är uppladd
 Accepterar uppladdning av dataset (stöder filformaten .csv).
  Läser in filen till en Pandas DataFrame i minnet och returnerar metadata (rader, kolumner, datatyper).
 
-- ***POST** /ai/ask
+- **POST** /ai/ask
 Fråga oraklet! Tar emot en JSON-payload (t.ex. {"question": "Vilken stad har högst medeltemperatur?"}) och returnerar ett AI-genererat svar baserat på den uppladdade datan.
 
 ## 🧪 Tester (Pytest)
