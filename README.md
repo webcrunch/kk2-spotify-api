@@ -46,8 +46,7 @@ uv sync
 
 ### 2. Miljövariabler
 
-Kopiera .env.example till en ny fil döpt till .env (denna ignoreras av Git av säkerhetsskäl).
-
+Skapa en ny fil i projektets rotkatalog och döp den till `.env` (denna ignoreras av Git av säkerhetsskäl). Kopiera sedan in nedanstående konfiguration i filen:
 
 ``` bash 
 # Välj leverantör: 'huggingface' (Standard) eller 'ollama'
