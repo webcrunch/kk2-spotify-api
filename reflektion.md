@@ -36,7 +36,7 @@ Om en användare ställer en fråga som "Vilken musik lyssnar höginkomsttagare 
 För att säkerställa systemets stabilitet oberoende av LLM:ens dagsform arbetar jag **testdrivet (TDD)** via Pytest. Genom att mocka AI-modellens svar via monkeypatch kan jag verifiera att min datarörledning fungerar deterministiskt, helt utan påverkan från modellens eventuella hallucinationer.
 
 ## 4. Designval
-#### Deklarativa datarörledningar (LCEL)
+#### Implementering av modulär pipeline (LCEL)
 Istället för att skriva all logik i en monolitisk funktion valde jag att bygga vidare på det egna Runnable-mönster (inspirerat av LangChain) som vi introducerades för tidigare i kursen. Jag anpassade mönstret för min specifika arkitektur och orkestrerade min pipeline som prompt | model | parser. 
 
 Jag anser att detta mönster är arkitektoniskt överlägset eftersom det skapar en tydlig och modulär struktur. Genom att jag har implementerat strikt typad Pydantic-data för varje specifik komponent i kedjan, blir det enkelt för mig att isolerat byta ut eller testa delar (exempelvis om jag skulle vilja växla från Ollama till ett externt moln-API i framtiden) utan att behöva skriva om kärnlogiken.
