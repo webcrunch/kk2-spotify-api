@@ -9,7 +9,7 @@
 ## ✨ Utmärkande funktioner
 
 * **Egen Runnable-kedja:** Kärnan i applikationen är en typad pipeline (`PromptBuilder` | `LLMRunner` | `ResponseParser`) där varje steg valideras med Pydantic-modeller.
-* **Dynamisk Datatolkning:** API:et är robust och hanterar inte bara de kravställda `.csv`-filerna, utan packar även upp `.xlsx` och `.xls` dynamiskt i bakgrunden med hjälp av `openpyxl`. Den har även fallback-logik för att alltid hitta relevant data att analysera.
+* **Defensiv Datavalidering:** API:et är byggt med robusthet i åtanke och har strikt validering. Den säkerställer att endast korrekta .csv-filer hanteras, validerar filstorlek och minimerar risker för systemkrascher orsakade av ogiltig eller skadlig indata.
 * **Lokal AI via Transformers & Ollama:** Integrerad med `HuggingFaceTB/SmolLM2-135M-Instruct` via pipeline, men byggd med ett abstraktionslager som gör det möjligt att blixtsnabbt växla över till större modeller (ex. Llama 3.2 via Ollama) genom miljövariabler.
 * **Separation of Concerns:** Routers, Pydantic-scheman, kedjelogik och tester är strikt separerade i en tydlig projektstruktur.
 
@@ -102,7 +102,7 @@ Accepterar uppladdning av dataset (stöder filformaten .csv).
  Läser in filen till en Pandas DataFrame i minnet och returnerar metadata (rader, kolumner, datatyper).
 
 - **POST** /ai/ask
-Fråga oraklet! Tar emot en JSON-payload (t.ex. {"question": "Vilken stad har högst medeltemperatur?"}) och returnerar ett AI-genererat svar baserat på den uppladdade datan.
+Fråga oraklet! Tar emot en JSON-payload (t.ex. {"question": "Vilken låt har högst tempo?", "context": "Spotify-data"}) och returnerar ett AI-genererat svar baserat på den uppladdade datan.
 
 ## 🧪 Tester (Pytest)
 
