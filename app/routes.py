@@ -40,13 +40,24 @@ class ChatRequest(BaseModel):
     context: str
 
 
-def get_data_or_404():
+def get_data_for_stats():
     global global_df
     if global_df is None:
-        logger.error(f"Ingen data har laddats upp. Kör /data/upload först!")
+        logger.error("Ingen data har laddats upp. Kör /data/upload först!")
         raise HTTPException(
-            status_code=404,
+            status_code=404,  # 404 för stats (G-krav)
             detail="Ingen data har laddats upp. Kör /data/upload först!",
+        )
+    return global_df
+
+
+def get_data_for_ai():
+    global global_df
+    if global_df is None:
+        logger.error("Ingen data har laddats upp. Kör /data/upload först!")
+        raise HTTPException(
+            status_code=400,  # 400 för AI (VG-krav)
+            detail="Bad Request: Inget dataset laddat för analys.",
         )
     return global_df
 
@@ -66,6 +77,13 @@ async def upload_data(request: Request, file: UploadFile = File(...)):
     try:
         contents = await file.read()
 
+        # Validera att filen inte är tom
+        if len(contents) == 0:
+            raise HTTPException(status_code=400, detail="Filen är tom.")
+
+        # Validera att filen inte är för stor. Satt den till max 5000kb
+        if len(contents) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Filen är för stor. Max 5MB")
         # Läs in filen direkt med Pandas
         global_df = pd.read_csv(io.BytesIO(contents), encoding="utf-8")
 
@@ -80,7 +98,7 @@ async def upload_data(request: Request, file: UploadFile = File(...)):
 
 
 @router.get("/data/stats")
-def get_stats(df: pd.DataFrame = Depends(get_data_or_404)):
+def get_stats(df: pd.DataFrame = Depends(get_data_for_stats)):
     return df.describe().to_dict()
 
 
@@ -89,7 +107,7 @@ def get_stats(df: pd.DataFrame = Depends(get_data_or_404)):
 def ask_ai(
     request: Request,
     chat_payload: ChatRequest,
-    df: pd.DataFrame = Depends(get_data_or_404),
+    df: pd.DataFrame = Depends(get_data_for_ai),
 ):
     try:
         #  Definiera vilka kolumner vi helst vill analysera

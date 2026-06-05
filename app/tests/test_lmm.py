@@ -1,13 +1,14 @@
 # hämta responseParser och LLMOutput
 from fastapi.testclient import TestClient
-
-from app.llm.llm import RawLLMOutput, ResponseParser, LLMRunner
+from app.llm.models import PipelineInput, PromptPayload
+from app.llm.llm import PromptBuilder
+from app.llm.llm import RawLLMOutput, ResponseParser, LLMRunner, PromptBuilder
 from app.main import app
 
 client = TestClient(app)
 
 
-# Test 1 : testar städning av kod
+# Testar städning av kod
 def test_response_parser_cleans_and_adds_signature(monkeypatch):
     # 1. Tvinga Python att tro att SmolLM körs för just för detta testet!
     # Detta ignorerar vad som faktiskt står i din .env-fil
@@ -45,7 +46,28 @@ def test_response_parser_cleans_and_adds_signature(monkeypatch):
     assert result.model == "smollm"
 
 
-# Test 2 : Testa att skicka tillbaka mockat svar
+def test_prompt_builder_creates_correct_prompt():
+    # ARRANGE
+    builder = PromptBuilder()
+    fake_input = PipelineInput(
+        question="Vem är kungen av pop?",
+        stats_text="Ingen statistik behövs",
+        context="Du är en musikexpert.",
+    )
+
+    # ACT
+    result = builder.invoke(fake_input)
+
+    # ASSERT
+    # Verifiera att resultatet är av rätt Pydantic-typ
+    assert isinstance(result, PromptPayload)
+    # Verifiera att prompten faktiskt bakade in vår data
+    assert "Vem är kungen av pop?" in result.full_prompt
+    assert "Ingen statistik behövs" in result.full_prompt
+    assert "Du är en musikexpert." in result.full_prompt
+
+
+# Testa att skicka tillbaka mockat svar
 def test_llm_runner_with_mock(monkeypatch):
     def mock_invoke(self, data):
         return RawLLMOutput(original_question=data.question, raw_text="fejkat svar")
